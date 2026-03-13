@@ -22,15 +22,23 @@ const AuthPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
+    if (!email.trim() || !password.trim()) {
+      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      return;
+    }
+    
+    if (isSignUp && password.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
     
     setLoading(true);
 
     try {
       if (isSignUp) {
-        // Sign up the user
+        // Sign up the user - with auto-confirmation enabled, this should create and confirm the user immediately
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password: password.trim(),
           options: {
             data: { 
@@ -40,15 +48,37 @@ const AuthPage = () => {
           },
         });
 
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          // Handle specific error cases
+          if (signUpError.message.includes("already registered") || signUpError.message.includes("already exists")) {
+            toast({ 
+              title: "Account already exists", 
+              description: "Please sign in instead.",
+              variant: "destructive"
+            });
+            setIsSignUp(false);
+            return;
+          }
+          throw signUpError;
+        }
 
-        // Immediately sign in the user after signup (bypass email confirmation)
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
+        if (!signUpData.user) {
+          throw new Error("Failed to create account");
+        }
 
-        if (signInError) throw signInError;
+        // With auto-confirmation enabled, the user should be automatically signed in
+        // But let's verify by checking the session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !sessionData.session) {
+          // If not automatically signed in, try to sign in manually
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim().toLowerCase(),
+            password: password.trim(),
+          });
+          
+          if (signInError) throw signInError;
+        }
 
         toast({ 
           title: "Welcome!", 
@@ -65,19 +95,31 @@ const AuthPage = () => {
       } else {
         // Sign in existing user
         const { error } = await supabase.auth.signInWithPassword({ 
-          email: email.trim(), 
+          email: email.trim().toLowerCase(), 
           password: password.trim() 
         });
         
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Invalid login")) {
+            toast({ 
+              title: "Invalid credentials", 
+              description: "Please check your email and password.",
+              variant: "destructive"
+            });
+          } else {
+            throw error;
+          }
+          return;
+        }
         
         toast({ title: "Welcome back!" });
         navigate("/");
       }
     } catch (err: any) {
+      console.error("Auth error:", err);
       toast({ 
         title: "Error", 
-        description: err.message, 
+        description: err.message || "An unexpected error occurred. Please try again.", 
         variant: "destructive" 
       });
     } finally {
@@ -208,7 +250,13 @@ const AuthPage = () => {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                // Clear form when switching
+                setEmail("");
+                setPassword("");
+                setFullName("");
+              }}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
