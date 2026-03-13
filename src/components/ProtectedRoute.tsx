@@ -1,9 +1,28 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requireAuthor?: boolean;
+}
+
+const ProtectedRoute = ({ children, requireAuthor = true }: ProtectedRouteProps) => {
+  const { user, loading, isAuthor } = useAuth();
+  const location = useLocation();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && user && requireAuthor && !isAuthor) {
+      toast({
+        title: "Author Access Required",
+        description: "Become an author to upload books. Update your profile to get started.",
+        variant: "destructive",
+      });
+    }
+  }, [loading, user, isAuthor, requireAuthor, toast]);
 
   if (loading) {
     return (
@@ -14,7 +33,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth" replace state={{ from: location }} />;
+  }
+
+  if (requireAuthor && !isAuthor) {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

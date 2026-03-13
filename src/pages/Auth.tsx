@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
+type UserRole = 'author' | 'reader';
+
 const AuthPage = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<UserRole>('reader');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,18 +31,28 @@ const AuthPage = () => {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { full_name: fullName },
+            data: { 
+              full_name: fullName,
+              role: role 
+            },
           },
         });
         if (error) throw error;
-        toast({ title: "Account created!", description: "Check your email to verify your account." });
+        toast({ 
+          title: "Account created!", 
+          description: "Check your email to verify your account." 
+        });
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         navigate("/dashboard");
       }
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ 
+        title: "Error", 
+        description: err.message, 
+        variant: "destructive" 
+      });
     } finally {
       setLoading(false);
     }
@@ -64,7 +77,7 @@ const AuthPage = () => {
               {isSignUp ? "Create Your Account" : "Welcome Back"}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {isSignUp ? "Start your publishing journey today" : "Sign in to your author dashboard"}
+              {isSignUp ? "Start your publishing journey today" : "Sign in to your account"}
             </p>
           </div>
 
@@ -82,6 +95,7 @@ const AuthPage = () => {
                 />
               </div>
             )}
+            
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -93,6 +107,7 @@ const AuthPage = () => {
                 className="pl-10 h-12 bg-background border-border"
               />
             </div>
+            
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -112,9 +127,55 @@ const AuthPage = () => {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            <Button type="submit" variant="gold" className="w-full h-12 gap-2 rounded-full" disabled={loading}>
-              {loading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
-              <ArrowRight className="h-4 w-4" />
+
+            {isSignUp && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground">I want to join as:</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRole('reader')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      role === 'reader'
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border hover:border-primary/30 text-muted-foreground'
+                    }`}
+                  >
+                    <BookOpen className="h-6 w-6" />
+                    <span className="text-sm font-semibold">Reader</span>
+                    <span className="text-xs opacity-70">Discover & read books</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('author')}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                      role === 'author'
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border hover:border-primary/30 text-muted-foreground'
+                    }`}
+                  >
+                    <User className="h-6 w-6" />
+                    <span className="text-sm font-semibold">Author</span>
+                    <span className="text-xs opacity-70">Publish & sell books</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <Button 
+              type="submit" 
+              variant="gold" 
+              className="w-full h-12 gap-2 rounded-full" 
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  {isSignUp ? "Create Account" : "Sign In"}
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
 

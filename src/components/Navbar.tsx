@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { BookOpen, Search, LayoutDashboard, DollarSign, ShoppingBag, LogIn, LogOut, Home, Menu, X } from "lucide-react";
+import { BookOpen, Search, LayoutDashboard, DollarSign, ShoppingBag, LogIn, LogOut, Home, Menu, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,7 @@ const navItems = [
 
 const Navbar = () => {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAuthor, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -53,18 +53,27 @@ const Navbar = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            {user ? (
+            {loading ? (
+              <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+            ) : user ? (
               <>
-                <Link to="/dashboard">
-                  <Button
-                    variant={location.pathname === "/dashboard" ? "gold" : "gold-outline"}
-                    size="sm"
-                    className="gap-1.5 rounded-full"
-                  >
-                    <LayoutDashboard className="h-4 w-4" /> Dashboard
-                  </Button>
-                </Link>
-                <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground gap-1">
+                {isAuthor && (
+                  <Link to="/dashboard">
+                    <Button
+                      variant={location.pathname === "/dashboard" ? "gold" : "gold-outline"}
+                      size="sm"
+                      className="gap-1.5 rounded-full"
+                    >
+                      <LayoutDashboard className="h-4 w-4" /> Dashboard
+                    </Button>
+                  </Link>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={signOut} 
+                  className="text-muted-foreground gap-1"
+                >
                   <LogOut className="h-4 w-4" /> Sign Out
                 </Button>
               </>
@@ -112,13 +121,17 @@ const Navbar = () => {
                   );
                 })}
                 <div className="pt-2 border-t border-border mt-2 px-3">
-                  {user ? (
+                  {loading ? (
+                    <div className="h-10 rounded-full bg-muted animate-pulse" />
+                  ) : user ? (
                     <div className="space-y-2">
-                      <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
-                        <Button variant="gold" size="sm" className="w-full gap-2 rounded-full">
-                          <LayoutDashboard className="h-4 w-4" /> Dashboard
-                        </Button>
-                      </Link>
+                      {isAuthor && (
+                        <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
+                          <Button variant="gold" size="sm" className="w-full gap-2 rounded-full">
+                            <LayoutDashboard className="h-4 w-4" /> Dashboard
+                          </Button>
+                        </Link>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
