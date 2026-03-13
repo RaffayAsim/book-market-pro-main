@@ -69,14 +69,22 @@ const mapGoogleBook = (item: GoogleBooksResponse["items"][0]): GoogleBook => ({
   isAvailableForFree: !!(item.accessInfo?.pdf?.isAvailable || item.accessInfo?.epub?.isAvailable),
 });
 
-export const fetchBooksByQuery = async (query: string, maxResults: number = 20): Promise<GoogleBook[]> => {
+export const fetchBooksByQuery = async (
+  query: string, 
+  maxResults: number = 20,
+  orderBy?: string
+): Promise<GoogleBook[]> => {
   const params = new URLSearchParams({
     q: query,
     maxResults: String(maxResults),
     key: API_KEY,
   });
   
-  const response = await fetch(`${BASE_URL}?${params}`);
+  if (orderBy) {
+    params.append("orderBy", orderBy);
+  }
+  
+  const response = await fetch(`${BASE_URL}?${params.toString()}`);
   
   if (response.status === 429) {
     throw new Error("Search limit reached. Please try again later.");
@@ -91,15 +99,23 @@ export const fetchBooksByQuery = async (query: string, maxResults: number = 20):
 };
 
 export const fetchBestsellers = async (): Promise<GoogleBook[]> => {
-  return fetchBooksByQuery("subject:fiction&orderBy=newest", 12);
+  // Use subject:fiction with orderBy=newest as separate params
+  return fetchBooksByQuery("subject:fiction", 12, "newest");
 };
 
 export const fetchTrending = async (): Promise<GoogleBook[]> => {
-  return fetchBooksByQuery("bestsellers&orderBy=relevance", 12);
+  // Search for popular books with relevance ordering
+  return fetchBooksByQuery("bestsellers", 12, "relevance");
 };
 
 export const fetchTopRated = async (): Promise<GoogleBook[]> => {
-  return fetchBooksByQuery("subject:fiction", 20);
+  // Get fiction books and we'll sort by rating client-side
+  const books = await fetchBooksByQuery("subject:fiction", 40);
+  // Sort by rating and return top ones
+  return books
+    .filter(b => b.averageRating > 0)
+    .sort((a, b) => b.averageRating - a.averageRating)
+    .slice(0, 12);
 };
 
 // React Query hooks

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ExternalLink, BookOpen, Loader2, Globe, AlertTriangle, Sparkles, Library } from "lucide-react";
+import { Search, BookOpen, Loader2, Globe, AlertTriangle, Sparkles, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GoogleBookCard } from "@/components/GoogleBookCard";
@@ -15,13 +15,14 @@ const BookSearchPage = () => {
   const [searchTrigger, setSearchTrigger] = useState("");
   const [selectedBook, setSelectedBook] = useState<GoogleBook | null>(null);
 
-  const { data: results = [], isLoading, error } = useGoogleBooksSearch(searchTrigger);
+  const { data: results = [], isLoading: isSearchLoading, error: searchError } = useGoogleBooksSearch(searchTrigger);
   
-  // Show featured books when no search
-  const { data: defaultBooks = [], isLoading: defaultLoading } = useFeaturedBooks();
+  // Always load featured books for default display
+  const { data: defaultBooks = [], isLoading: isDefaultLoading, error: defaultError } = useFeaturedBooks();
 
   const displayBooks = searchTrigger ? results : defaultBooks;
-  const loading = searchTrigger ? isLoading : defaultLoading;
+  const loading = searchTrigger ? isSearchLoading : isDefaultLoading;
+  const error = searchTrigger ? searchError : defaultError;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,8 +73,8 @@ const BookSearchPage = () => {
                 className="pl-12 h-14 bg-card border-border text-foreground placeholder:text-muted-foreground rounded-full shadow-soft focus:shadow-gold transition-shadow text-base"
               />
             </div>
-            <Button type="submit" variant="gold" size="lg" disabled={isLoading} className="px-8 rounded-full h-14">
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Search"}
+            <Button type="submit" variant="gold" size="lg" disabled={loading} className="px-8 rounded-full h-14">
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Search"}
             </Button>
           </div>
         </motion.form>
@@ -169,7 +170,7 @@ const BookSearchPage = () => {
                 />
               ))}
             </motion.div>
-          ) : searchTrigger ? (
+          ) : (
             <motion.div
               key="empty"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -179,10 +180,16 @@ const BookSearchPage = () => {
               <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-muted mb-6">
                 <BookOpen className="h-10 w-10 opacity-30" />
               </div>
-              <p className="text-xl font-display font-semibold mb-2">No books found</p>
-              <p className="text-sm max-w-md mx-auto">Try a different search term or browse our featured collection.</p>
+              <p className="text-xl font-display font-semibold mb-2">
+                {searchTrigger ? "No books found" : "Unable to load books"}
+              </p>
+              <p className="text-sm max-w-md mx-auto">
+                {searchTrigger 
+                  ? "Try a different search term or browse our featured collection." 
+                  : "Please check your internet connection and try refreshing the page."}
+              </p>
             </motion.div>
-          ) : null}
+          )}
         </AnimatePresence>
       </div>
 

@@ -54,7 +54,8 @@ const BookCarouselSection = ({
       ) : (
         <div className="text-center py-12 text-muted-foreground bg-muted/30 rounded-2xl border border-border">
           <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>Discovering amazing books for you...</p>
+          <p className="mb-2">No books found</p>
+          <p className="text-sm">Please check your internet connection and try refreshing.</p>
         </div>
       )}
     </div>
@@ -62,10 +63,15 @@ const BookCarouselSection = ({
 );
 
 const Index = () => {
-  const { data: featuredBooks = [], isLoading: featuredLoading } = useFeaturedBooks();
-  const { data: topRatedBooks = [], isLoading: topRatedLoading } = useTopRatedBooks();
-  const { data: trendingBooks = [], isLoading: trendingLoading } = useTrendingBooks();
+  const { data: featuredBooks = [], isLoading: featuredLoading, error: featuredError } = useFeaturedBooks();
+  const { data: topRatedBooks = [], isLoading: topRatedLoading, error: topRatedError } = useTopRatedBooks();
+  const { data: trendingBooks = [], isLoading: trendingLoading, error: trendingError } = useTrendingBooks();
   const [selectedBook, setSelectedBook] = useState<GoogleBook | null>(null);
+
+  // Log errors for debugging
+  if (featuredError) console.error("Featured books error:", featuredError);
+  if (topRatedError) console.error("Top rated books error:", topRatedError);
+  if (trendingError) console.error("Trending books error:", trendingError);
 
   return (
     <div>

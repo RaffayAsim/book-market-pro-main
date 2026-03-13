@@ -15,20 +15,16 @@ const Marketplace = () => {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [selectedBook, setSelectedBook] = useState<GoogleBook | null>(null);
   const [activeTab, setActiveTab] = useState<"discover" | "trending">("discover");
-  const [hasInteracted, setHasInteracted] = useState(false);
 
+  // Always fetch trending for initial display
+  const { data: trendingBooks = [], isLoading: trendingLoading } = useTrendingBooks();
+  
+  // Search results
   const { data: searchResults = [], isLoading: searchLoading } = useGoogleBooksSearch(
     searchQuery.length > 2 ? searchQuery : ""
   );
-  
-  const { data: trendingBooks = [], isLoading: trendingLoading } = useTrendingBooks();
 
-  // Default discover query - popular books
-  const defaultDiscoverQuery = "subject:fiction&orderBy=relevance";
-  const { data: discoverBooks = [], isLoading: discoverLoading } = useGoogleBooksSearch(
-    activeTab === "discover" && !searchQuery && selectedGenre === "All" ? defaultDiscoverQuery : ""
-  );
-
+  // Genre filter - only active when a genre is selected and no search
   const getGenreQuery = (genre: string) => {
     if (genre === "All") return "subject:fiction";
     if (genre === "Sci-Fi") return "subject:science fiction";
@@ -40,18 +36,20 @@ const Marketplace = () => {
     activeTab === "discover" && selectedGenre !== "All" && !searchQuery ? getGenreQuery(selectedGenre) : ""
   );
 
+  // Determine which books to display
   const displayBooks = searchQuery.length > 2 
     ? searchResults 
     : activeTab === "trending" 
       ? trendingBooks 
       : selectedGenre !== "All" 
         ? genreBooks 
-        : discoverBooks;
+        : trendingBooks; // Default to trending books
 
-  const isLoading = searchLoading || (activeTab === "trending" ? trendingLoading : selectedGenre !== "All" ? genreLoading : discoverLoading);
+  const isLoading = searchLoading || trendingLoading || genreLoading;
 
   // Shuffle array for random display
   const shuffleArray = (array: GoogleBook[]) => {
+    if (!array || array.length === 0) return [];
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -60,7 +58,14 @@ const Marketplace = () => {
     return newArray;
   };
 
-  const randomizedBooks = hasInteracted ? displayBooks : shuffleArray(displayBooks);
+  const [randomizedBooks, setRandomizedBooks] = useState<GoogleBook[]>([]);
+
+  // Update randomized books when data changes
+  useEffect(() => {
+    if (displayBooks.length > 0) {
+      setRandomizedBooks(shuffleArray(displayBooks));
+    }
+  }, [displayBooks, activeTab, selectedGenre, searchQuery]);
 
   return (
     <div className="py-12">
@@ -94,10 +99,7 @@ const Marketplace = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setHasInteracted(true);
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by title, author, or keyword..."
                 className="pl-12 h-14 bg-card border-border text-foreground text-base rounded-full shadow-soft focus:shadow-gold transition-shadow"
               />
@@ -106,10 +108,7 @@ const Marketplace = () => {
               <Filter className="h-4 w-4 text-muted-foreground ml-2" />
               <select
                 value={selectedGenre}
-                onChange={(e) => {
-                  setSelectedGenre(e.target.value);
-                  setHasInteracted(true);
-                }}
+                onChange={(e) => setSelectedGenre(e.target.value)}
                 className="h-14 rounded-full border border-border bg-card px-5 text-sm text-foreground focus:ring-2 focus:ring-primary outline-none cursor-pointer hover:border-primary/30 transition-colors"
               >
                 {genres.map(g => <option key={g} value={g}>{g}</option>)}
@@ -127,7 +126,7 @@ const Marketplace = () => {
             className="flex justify-center gap-3 mb-10"
           >
             <button
-              onClick={() => { setActiveTab("discover"); setHasInteracted(true); }}
+              onClick={() => setActiveTab("discover")}
               className={`flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-300 ${
                 activeTab === "discover"
                   ? "bg-primary text-primary-foreground shadow-gold scale-105"
@@ -137,7 +136,7 @@ const Marketplace = () => {
               <Sparkles className="h-4 w-4" /> Discover
             </button>
             <button
-              onClick={() => { setActiveTab("trending"); setHasInteracted(true); }}
+              onClick={() => setActiveTab("trending")}
               className={`flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-300 ${
                 activeTab === "trending"
                   ? "bg-primary text-primary-foreground shadow-gold scale-105"
@@ -147,7 +146,7 @@ const Marketplace = () => {
               <TrendingUp className="h-4 w-4" /> Trending
             </button>
             <button
-              onClick={() => { setHasInteracted(true); }}
+              onClick={() => setRandomizedBooks(shuffleArray(displayBooks))}
               className="flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-300"
             >
               <Shuffle className="h-4 w-4" /> Surprise Me
@@ -157,7 +156,7 @@ const Marketplace = () => {
 
         {/* Results Info */}
         <AnimatePresence mode="wait">
-          {!isLoading && displayBooks.length > 0 && (
+          {!isLoading && randomizedBooks.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -165,7 +164,7 @@ const Marketplace = () => {
               className="flex items-center justify-between mb-6"
             >
               <p className="text-sm text-muted-foreground">
-                Showing <span className="text-primary font-semibold">{displayBooks.length}</span> books
+                Showing <span className="text-primary font-semibold">{randomizedBooks.length}</span> books
                 {searchQuery && ` for "${searchQuery}"`}
                 {selectedGenre !== "All" && !searchQuery && ` in ${selectedGenre}`}
               </p>
