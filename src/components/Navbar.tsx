@@ -68,6 +68,15 @@ const Navbar = () => {
                     </Button>
                   </Link>
                 )}
+                <Link to="/profile">
+                  <Button 
+                    variant={location.pathname === "/profile" ? "gold" : "ghost"}
+                    size="sm" 
+                    className="gap-1.5"
+                  >
+                    <User className="h-4 w-4" /> Account
+                  </Button>
+                </Link>
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -120,11 +129,18 @@ const Navbar = () => {
                     </Link>
                   );
                 })}
-                <div className="pt-2 border-t border-border mt-2 px-3">
+                <div className="pt-2 border-t border-border mt-2 px-3 space-y-2">
                   {loading ? (
                     <div className="h-10 rounded-full bg-muted animate-pulse" />
                   ) : user ? (
-                    <div className="space-y-2">
+                    <>
+                      <Link to="/profile" onClick={() => setMobileOpen(false)}>
+                        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          location.pathname === "/profile" ? "text-primary bg-primary/5" : "text-muted-foreground hover:bg-muted"
+                        }`}>
+                          <User className="h-4 w-4" /> My Profile
+                        </div>
+                      </Link>
                       {isAuthor && (
                         <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
                           <Button variant="gold" size="sm" className="w-full gap-2 rounded-full">
@@ -140,7 +156,7 @@ const Navbar = () => {
                       >
                         <LogOut className="h-4 w-4" /> Sign Out
                       </Button>
-                    </div>
+                    </>
                   ) : (
                     <Link to="/auth" onClick={() => setMobileOpen(false)}>
                       <Button variant="gold" size="sm" className="w-full gap-2 rounded-full">

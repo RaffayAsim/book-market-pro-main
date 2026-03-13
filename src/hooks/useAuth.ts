@@ -20,14 +20,21 @@ export function useAuth() {
 
   useEffect(() => {
     const fetchProfile = async (userId: string) => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      
-      if (!error && data) {
-        setProfile(data as Profile);
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
+        
+        if (!error && data) {
+          setProfile(data as Profile);
+        } else {
+          console.error("Profile fetch error:", error);
+          // Don't set profile if there's an error, but don't block auth
+        }
+      } catch (err) {
+        console.error("Profile fetch exception:", err);
       }
     };
 
@@ -37,7 +44,10 @@ export function useAuth() {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          // Small delay to allow trigger to complete
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 500);
         } else {
           setProfile(null);
         }
@@ -63,6 +73,8 @@ export function useAuth() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setUser(null);
+    setSession(null);
   };
 
   const isAuthor = profile?.role === 'author';

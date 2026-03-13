@@ -45,7 +45,8 @@ const AuthPage = () => {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/dashboard");
+        // Redirect to home after login - dashboard will be accessible via nav for authors
+        navigate("/");
       }
     } catch (err: any) {
       toast({ 
