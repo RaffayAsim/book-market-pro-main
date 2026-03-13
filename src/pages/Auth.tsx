@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User, Loader2 } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,18 +17,21 @@ const AuthPage = () => {
   const [role, setRole] = useState<UserRole>('reader');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+    
     if (!email.trim() || !password.trim()) {
-      toast({ title: "Error", description: "Please fill in all fields", variant: "destructive" });
+      setErrorMessage("Please fill in all fields");
       return;
     }
     
     if (isSignUp && password.length < 6) {
-      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      setErrorMessage("Password must be at least 6 characters");
       return;
     }
     
@@ -36,7 +39,7 @@ const AuthPage = () => {
 
     try {
       if (isSignUp) {
-        // Sign up the user - with auto-confirmation enabled, this should create and confirm the user immediately
+        // Try to sign up
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password: password.trim(),
@@ -48,48 +51,63 @@ const AuthPage = () => {
           },
         });
 
+        // Handle "user already exists" - try to sign in instead
         if (signUpError) {
-          // Handle specific error cases
-          if (signUpError.message.includes("already registered") || signUpError.message.includes("already exists")) {
-            toast({ 
-              title: "Account already exists", 
-              description: "Please sign in instead.",
-              variant: "destructive"
+          if (signUpError.message.includes("already registered") || 
+              signUpError.message.includes("already exists") ||
+              signUpError.message.includes("User already registered")) {
+            
+            // Try signing in with the credentials
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: email.trim().toLowerCase(),
+              password: password.trim(),
             });
-            setIsSignUp(false);
+            
+            if (signInError) {
+              setErrorMessage("This email is already registered. Please sign in instead.");
+              setIsSignUp(false);
+              setLoading(false);
+              return;
+            }
+            
+            // Sign in worked! Redirect
+            toast({ title: "Welcome back!", description: "You were already registered, so we signed you in." });
+            navigate("/");
             return;
           }
+          
           throw signUpError;
         }
 
-        if (!signUpData.user) {
-          throw new Error("Failed to create account");
-        }
-
-        // With auto-confirmation enabled, the user should be automatically signed in
-        // But let's verify by checking the session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError || !sessionData.session) {
-          // If not automatically signed in, try to sign in manually
+        // Sign up succeeded - now try to sign in to get a session
+        if (signUpData.user) {
           const { error: signInError } = await supabase.auth.signInWithPassword({
             email: email.trim().toLowerCase(),
             password: password.trim(),
           });
           
-          if (signInError) throw signInError;
-        }
-
-        toast({ 
-          title: "Welcome!", 
-          description: `Your account has been created as a ${role}.` 
-        });
-        
-        // Redirect based on role
-        if (role === 'author') {
-          navigate("/author-dashboard");
-        } else {
-          navigate("/dashboard");
+          if (signInError) {
+            // User created but couldn't sign in - might need email confirmation
+            toast({ 
+              title: "Account created!", 
+              description: "Please check your email to confirm your account, then sign in.",
+            });
+            setIsSignUp(false);
+            setLoading(false);
+            return;
+          }
+          
+          // Success! Redirect based on role
+          toast({ 
+            title: "Welcome!", 
+            description: `Your account has been created as a ${role}.` 
+          });
+          
+          if (role === 'author') {
+            navigate("/author-dashboard");
+          } else {
+            navigate("/dashboard");
+          }
         }
         
       } else {
@@ -101,14 +119,13 @@ const AuthPage = () => {
         
         if (error) {
           if (error.message.includes("Invalid login")) {
-            toast({ 
-              title: "Invalid credentials", 
-              description: "Please check your email and password.",
-              variant: "destructive"
-            });
+            setErrorMessage("Invalid email or password. Please try again.");
+          } else if (error.message.includes("Email not confirmed")) {
+            setErrorMessage("Please confirm your email address before signing in.");
           } else {
-            throw error;
+            setErrorMessage(error.message);
           }
+          setLoading(false);
           return;
         }
         
@@ -117,11 +134,7 @@ const AuthPage = () => {
       }
     } catch (err: any) {
       console.error("Auth error:", err);
-      toast({ 
-        title: "Error", 
-        description: err.message || "An unexpected error occurred. Please try again.", 
-        variant: "destructive" 
-      });
+      setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -149,6 +162,14 @@ const AuthPage = () => {
               {isSignUp ? "Start your publishing journey today" : "Sign in to your account"}
             </p>
           </div>
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
@@ -252,7 +273,7 @@ const AuthPage = () => {
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
-                // Clear form when switching
+                setErrorMessage("");
                 setEmail("");
                 setPassword("");
                 setFullName("");
