@@ -22,30 +22,56 @@ const AuthPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) return;
+    
     setLoading(true);
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
+        // Sign up the user
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
           options: {
-            emailRedirectTo: window.location.origin,
             data: { 
-              full_name: fullName,
+              full_name: fullName.trim(),
               role: role 
             },
           },
         });
-        if (error) throw error;
-        toast({ 
-          title: "Account created!", 
-          description: "Check your email to verify your account." 
+
+        if (signUpError) throw signUpError;
+
+        // Immediately sign in the user after signup (bypass email confirmation)
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
         });
+
+        if (signInError) throw signInError;
+
+        toast({ 
+          title: "Welcome!", 
+          description: `Your account has been created as a ${role}.` 
+        });
+        
+        // Redirect based on role
+        if (role === 'author') {
+          navigate("/author-dashboard");
+        } else {
+          navigate("/dashboard");
+        }
+        
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Sign in existing user
+        const { error } = await supabase.auth.signInWithPassword({ 
+          email: email.trim(), 
+          password: password.trim() 
+        });
+        
         if (error) throw error;
-        // Redirect to home after login - dashboard will be accessible via nav for authors
+        
+        toast({ title: "Welcome back!" });
         navigate("/");
       }
     } catch (err: any) {
@@ -91,7 +117,7 @@ const AuthPage = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Full name"
-                  required
+                  required={isSignUp}
                   className="pl-10 h-12 bg-background border-border"
                 />
               </div>
