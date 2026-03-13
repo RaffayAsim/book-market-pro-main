@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import PersonalizationQuiz from "@/components/PersonalizationQuiz";
 
 interface ReadingProgress {
   bookId: string;
@@ -44,6 +45,7 @@ const ReaderDashboard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [showQuiz, setShowQuiz] = useState(false);
   const [streak, setStreak] = useState(12);
   const [activeReads, setActiveReads] = useState<ReadingProgress[]>([
     {
@@ -72,6 +74,13 @@ const ReaderDashboard = () => {
     { id: "5", name: "Speed Reader", description: "Finish a book in 24 hours", icon: "⚡", unlocked: false },
   ]);
 
+  // Show quiz on first login if not completed
+  useEffect(() => {
+    if (profile && !profile.metadata?.quizCompleted) {
+      setShowQuiz(true);
+    }
+  }, [profile]);
+
   const handleUpgradeToAuthor = async () => {
     if (!user) return;
     
@@ -88,11 +97,21 @@ const ReaderDashboard = () => {
         description: "Your account has been upgraded. Let's set up your author profile." 
       });
       
-      navigate("/author-onboarding");
+      navigate("/author-dashboard");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
+
+  const handleQuizClose = () => {
+    setShowQuiz(false);
+    // Refresh the page to get updated profile
+    window.location.reload();
+  };
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -330,6 +349,15 @@ const ReaderDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Personalization Quiz Modal */}
+      {user && (
+        <PersonalizationQuiz 
+          isOpen={showQuiz} 
+          onClose={handleQuizClose}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 };

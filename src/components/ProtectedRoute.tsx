@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
   requireAuthor?: boolean;
 }
 
-const ProtectedRoute = ({ children, requireAuthor = true }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, requireAuthor = false }: ProtectedRouteProps) => {
   const { user, loading, isAuthor } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
@@ -18,7 +18,7 @@ const ProtectedRoute = ({ children, requireAuthor = true }: ProtectedRouteProps)
     if (!loading && user && requireAuthor && !isAuthor) {
       toast({
         title: "Author Access Required",
-        description: "Become an author to upload books. Update your profile to get started.",
+        description: "Become an author to access this page. Update your profile to get started.",
         variant: "destructive",
       });
     }
