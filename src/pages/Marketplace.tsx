@@ -63,7 +63,6 @@ const Marketplace = () => {
           </p>
         </motion.div>
 
-        {/* Search Bar */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1 max-w-xl">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -86,7 +85,6 @@ const Marketplace = () => {
           </div>
         </div>
 
-        {/* Tabs */}
         {!searchQuery && (
           <div className="flex gap-2 mb-8">
             <button
@@ -104,7 +102,7 @@ const Marketplace = () => {
               className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
                 activeTab === "trending"
                   ? "bg-primary text-primary-foreground"
-                  : : "bg-muted text-muted-foreground hover:text-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               <TrendingUp className="h-4 w-4" /> Trending
@@ -112,7 +110,6 @@ const Marketplace = () => {
           </div>
         )}
 
-        {/* Results Count */}
         {!isLoading && displayBooks.length > 0 && (
           <p className="text-sm text-muted-foreground mb-6">
             Showing <span className="text-primary font-semibold">{displayBooks.length}</span> books
@@ -121,7 +118,6 @@ const Marketplace = () => {
           </p>
         )}
 
-        {/* Books Grid */}
         {isLoading ? (
           <BookGridSkeleton count={12} />
         ) : displayBooks.length > 0 ? (
