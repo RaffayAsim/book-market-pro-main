@@ -8,7 +8,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
 import BookSearch from "./pages/BookSearch";
-import Dashboard from "./pages/Dashboard";
+import ReaderDashboard from "./pages/ReaderDashboard";
+import AuthorDashboard from "./pages/AuthorDashboard";
 import Pricing from "./pages/Pricing";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
@@ -34,7 +35,15 @@ const App = () => (
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <ReaderDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/author-dashboard"
+              element={
+                <ProtectedRoute requireAuthor={true}>
+                  <AuthorDashboard />
                 </ProtectedRoute>
               }
             />

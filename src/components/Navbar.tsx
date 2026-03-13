@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { BookOpen, Search, LayoutDashboard, DollarSign, ShoppingBag, LogIn, LogOut, Home, Menu, X, User } from "lucide-react";
+import { BookOpen, Search, LayoutDashboard, DollarSign, ShoppingBag, LogIn, LogOut, Home, Menu, X, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,16 @@ const Navbar = () => {
   const location = useLocation();
   const { user, signOut, isAuthor, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const getDashboardLink = () => {
+    if (isAuthor) return "/author-dashboard";
+    return "/dashboard";
+  };
+
+  const getDashboardLabel = () => {
+    if (isAuthor) return "Author Studio";
+    return "My Library";
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-b border-border">
@@ -57,17 +67,16 @@ const Navbar = () => {
               <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
             ) : user ? (
               <>
-                {isAuthor && (
-                  <Link to="/dashboard">
-                    <Button
-                      variant={location.pathname === "/dashboard" ? "gold" : "gold-outline"}
-                      size="sm"
-                      className="gap-1.5 rounded-full"
-                    >
-                      <LayoutDashboard className="h-4 w-4" /> Dashboard
-                    </Button>
-                  </Link>
-                )}
+                <Link to={getDashboardLink()}>
+                  <Button
+                    variant={location.pathname.includes("dashboard") ? "gold" : "gold-outline"}
+                    size="sm"
+                    className="gap-1.5 rounded-full"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    {getDashboardLabel()}
+                  </Button>
+                </Link>
                 <Link to="/profile">
                   <Button 
                     variant={location.pathname === "/profile" ? "gold" : "ghost"}
@@ -134,6 +143,13 @@ const Navbar = () => {
                     <div className="h-10 rounded-full bg-muted animate-pulse" />
                   ) : user ? (
                     <>
+                      <Link to={getDashboardLink()} onClick={() => setMobileOpen(false)}>
+                        <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          location.pathname.includes("dashboard") ? "text-primary bg-primary/5" : "text-muted-foreground hover:bg-muted"
+                        }`}>
+                          <LayoutDashboard className="h-4 w-4" /> {getDashboardLabel()}
+                        </div>
+                      </Link>
                       <Link to="/profile" onClick={() => setMobileOpen(false)}>
                         <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                           location.pathname === "/profile" ? "text-primary bg-primary/5" : "text-muted-foreground hover:bg-muted"
@@ -141,13 +157,6 @@ const Navbar = () => {
                           <User className="h-4 w-4" /> My Profile
                         </div>
                       </Link>
-                      {isAuthor && (
-                        <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
-                          <Button variant="gold" size="sm" className="w-full gap-2 rounded-full">
-                            <LayoutDashboard className="h-4 w-4" /> Dashboard
-                          </Button>
-                        </Link>
-                      )}
                       <Button
                         variant="ghost"
                         size="sm"

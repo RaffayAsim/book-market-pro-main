@@ -1,20 +1,22 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, Globe, TrendingUp, BookOpen, Sparkles, Shuffle } from "lucide-react";
+import { Search, Filter, Globe, TrendingUp, BookOpen, Sparkles, Shuffle, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GoogleBookCard } from "@/components/GoogleBookCard";
 import { GoogleBookDetailModal } from "@/components/GoogleBookDetailModal";
 import { BookGridSkeleton } from "@/components/BookCardSkeleton";
 import { useGoogleBooksSearch, useTrendingBooks, type GoogleBook } from "@/services/googleBooks";
+import { useAuth } from "@/hooks/useAuth";
 
 const genres = ["All", "Fiction", "Non-Fiction", "Sci-Fi", "Fantasy", "Mystery", "Romance", "Self-Help", "Biography", "History", "Horror", "Poetry", "Thriller", "Business"];
 
 const Marketplace = () => {
+  const { profile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [selectedBook, setSelectedBook] = useState<GoogleBook | null>(null);
-  const [activeTab, setActiveTab] = useState<"discover" | "trending">("discover");
+  const [activeTab, setActiveTab] = useState<"discover" | "trending" | "personalized">("discover");
 
   // Always fetch trending for initial display
   const { data: trendingBooks = [], isLoading: trendingLoading } = useTrendingBooks();
@@ -24,7 +26,17 @@ const Marketplace = () => {
     searchQuery.length > 2 ? searchQuery : ""
   );
 
-  // Genre filter - only active when a genre is selected and no search
+  // Personalized search based on profile
+  const favoriteGenres = profile?.metadata?.favoriteGenres || [];
+  const personalizedQuery = favoriteGenres.length > 0 
+    ? `subject:${favoriteGenres[0].toLowerCase()}`
+    : "subject:fiction";
+  
+  const { data: personalizedBooks = [], isLoading: personalizedLoading } = useGoogleBooksSearch(
+    activeTab === "personalized" && favoriteGenres.length > 0 ? personalizedQuery : ""
+  );
+
+  // Genre filter
   const getGenreQuery = (genre: string) => {
     if (genre === "All") return "subject:fiction";
     if (genre === "Sci-Fi") return "subject:science fiction";
@@ -37,15 +49,16 @@ const Marketplace = () => {
   );
 
   // Determine which books to display
-  const displayBooks = searchQuery.length > 2 
-    ? searchResults 
-    : activeTab === "trending" 
-      ? trendingBooks 
-      : selectedGenre !== "All" 
-        ? genreBooks 
-        : trendingBooks; // Default to trending books
+  const getDisplayBooks = () => {
+    if (searchQuery.length > 2) return searchResults;
+    if (activeTab === "trending") return trendingBooks;
+    if (activeTab === "personalized") return personalizedBooks;
+    if (selectedGenre !== "All") return genreBooks;
+    return trendingBooks;
+  };
 
-  const isLoading = searchLoading || trendingLoading || genreLoading;
+  const displayBooks = getDisplayBooks();
+  const isLoading = searchLoading || trendingLoading || genreLoading || personalizedLoading;
 
   // Shuffle array for random display
   const shuffleArray = (array: GoogleBook[]) => {
@@ -60,12 +73,13 @@ const Marketplace = () => {
 
   const [randomizedBooks, setRandomizedBooks] = useState<GoogleBook[]>([]);
 
-  // Update randomized books when data changes
   useEffect(() => {
     if (displayBooks.length > 0) {
       setRandomizedBooks(shuffleArray(displayBooks));
     }
   }, [displayBooks, activeTab, selectedGenre, searchQuery]);
+
+  const showPersonalized = profile && favoriteGenres.length > 0;
 
   return (
     <div className="py-12">
@@ -123,7 +137,7 @@ const Marketplace = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="flex justify-center gap-3 mb-10"
+            className="flex justify-center gap-3 mb-10 flex-wrap"
           >
             <button
               onClick={() => setActiveTab("discover")}
@@ -145,12 +159,41 @@ const Marketplace = () => {
             >
               <TrendingUp className="h-4 w-4" /> Trending
             </button>
+            {showPersonalized && (
+              <button
+                onClick={() => setActiveTab("personalized")}
+                className={`flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all duration-300 ${
+                  activeTab === "personalized"
+                    ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-purple-500/25 scale-105"
+                    : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                }`}
+              >
+                <Heart className="h-4 w-4" /> Picked for You
+              </button>
+            )}
             <button
               onClick={() => setRandomizedBooks(shuffleArray(displayBooks))}
               className="flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-300"
             >
               <Shuffle className="h-4 w-4" /> Surprise Me
             </button>
+          </motion.div>
+        )}
+
+        {/* Personalized Section Header */}
+        {activeTab === "personalized" && showPersonalized && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/20"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Heart className="h-5 w-5 text-pink-500 fill-pink-500" />
+              <h2 className="font-display text-xl font-semibold text-foreground">Picked for You</h2>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Based on your interests: {favoriteGenres.join(", ")}
+            </p>
           </motion.div>
         )}
 
