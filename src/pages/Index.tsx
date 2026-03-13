@@ -1,53 +1,104 @@
-import { Flame, Award } from "lucide-react";
+import { Flame, Award, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import HeroSection from "@/components/home/HeroSection";
 import StatsBar from "@/components/home/StatsBar";
 import GenresSection from "@/components/home/GenresSection";
 import FeaturesSection from "@/components/home/FeaturesSection";
-import BookCarousel from "@/components/home/BookCarousel";
 import HowItWorks from "@/components/home/HowItWorks";
 import TestimonialsSection from "@/components/home/TestimonialsSection";
 import CTASection from "@/components/home/CTASection";
+import { GoogleBookCard } from "@/components/GoogleBookCard";
+import { GoogleBookDetailModal } from "@/components/GoogleBookDetailModal";
+import { BookGridSkeleton } from "@/components/BookCardSkeleton";
+import { useFeaturedBooks, useTopRatedBooks, type GoogleBook } from "@/services/googleBooks";
+import { useState } from "react";
 
-const featuredBooks = [
-  { id: 1, title: "The Midnight Library", author: "Matt Haig", cover: "https://covers.openlibrary.org/b/isbn/0525559477-L.jpg", rating: 4.8, genre: "Fiction" },
-  { id: 2, title: "Atomic Habits", author: "James Clear", cover: "https://covers.openlibrary.org/b/isbn/0735211299-L.jpg", rating: 4.9, genre: "Self-Help" },
-  { id: 3, title: "Project Hail Mary", author: "Andy Weir", cover: "https://covers.openlibrary.org/b/isbn/0593135202-L.jpg", rating: 4.7, genre: "Sci-Fi" },
-  { id: 4, title: "The Song of Achilles", author: "Madeline Miller", cover: "https://covers.openlibrary.org/b/isbn/0062060627-L.jpg", rating: 4.6, genre: "Historical" },
-  { id: 5, title: "Educated", author: "Tara Westover", cover: "https://covers.openlibrary.org/b/isbn/0399590501-L.jpg", rating: 4.7, genre: "Memoir" },
-  { id: 6, title: "Dune", author: "Frank Herbert", cover: "https://covers.openlibrary.org/b/isbn/0441013597-L.jpg", rating: 4.8, genre: "Sci-Fi" },
-];
-
-const topRated = [
-  { id: 7, title: "Where the Crawdads Sing", author: "Delia Owens", cover: "https://covers.openlibrary.org/b/isbn/0735219109-L.jpg", rating: 4.8, genre: "Fiction" },
-  { id: 8, title: "Sapiens", author: "Yuval Noah Harari", cover: "https://covers.openlibrary.org/b/isbn/0062316095-L.jpg", rating: 4.7, genre: "Non-Fiction" },
-  { id: 9, title: "The Alchemist", author: "Paulo Coelho", cover: "https://covers.openlibrary.org/b/isbn/0062315005-L.jpg", rating: 4.6, genre: "Fiction" },
-  { id: 10, title: "Becoming", author: "Michelle Obama", cover: "https://covers.openlibrary.org/b/isbn/1524763136-L.jpg", rating: 4.9, genre: "Memoir" },
-  { id: 11, title: "The Great Gatsby", author: "F. Scott Fitzgerald", cover: "https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg", rating: 4.5, genre: "Classic" },
-  { id: 12, title: "Thinking, Fast and Slow", author: "Daniel Kahneman", cover: "https://covers.openlibrary.org/b/isbn/0374533555-L.jpg", rating: 4.6, genre: "Psychology" },
-];
-
-const Index = () => (
-  <div>
-    <HeroSection />
-    <StatsBar />
-    <BookCarousel
-      title="Featured Books"
-      subtitle="This Month"
-      icon={<Flame className="h-5 w-5 text-primary" />}
-      books={featuredBooks}
-    />
-    <GenresSection />
-    <BookCarousel
-      title="Top Rated Books"
-      subtitle="Highest Rated"
-      icon={<Award className="h-5 w-5 text-primary" />}
-      books={topRated}
-    />
-    <FeaturesSection />
-    <HowItWorks />
-    <TestimonialsSection />
-    <CTASection />
-  </div>
+const BookCarouselSection = ({ 
+  title, 
+  subtitle, 
+  icon, 
+  books, 
+  isLoading, 
+  onBookClick 
+}: { 
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  books: GoogleBook[];
+  isLoading: boolean;
+  onBookClick: (book: GoogleBook) => void;
+}) => (
+  <section className="py-16">
+    <div className="container">
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            {icon}
+            <span className="text-xs font-semibold text-primary uppercase tracking-wider">{subtitle}</span>
+          </div>
+          <h2 className="font-display text-3xl font-bold text-foreground">{title}</h2>
+        </div>
+      </div>
+      
+      {isLoading ? (
+        <BookGridSkeleton count={6} />
+      ) : books.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {books.slice(0, 6).map((book, i) => (
+            <GoogleBookCard key={book.id} book={book} index={i} onClick={onBookClick} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">
+          <p>No books found. Try refreshing the page.</p>
+        </div>
+      )}
+    </div>
+  </section>
 );
+
+const Index = () => {
+  const { data: featuredBooks = [], isLoading: featuredLoading } = useFeaturedBooks();
+  const { data: topRatedBooks = [], isLoading: topRatedLoading } = useTopRatedBooks();
+  const [selectedBook, setSelectedBook] = useState<GoogleBook | null>(null);
+
+  return (
+    <div>
+      <HeroSection />
+      <StatsBar />
+      
+      <BookCarouselSection
+        title="Featured Books"
+        subtitle="This Month"
+        icon={<Flame className="h-5 w-5 text-primary" />}
+        books={featuredBooks}
+        isLoading={featuredLoading}
+        onBookClick={setSelectedBook}
+      />
+      
+      <GenresSection />
+      
+      <BookCarouselSection
+        title="Top Rated Books"
+        subtitle="Highest Rated"
+        icon={<Award className="h-5 w-5 text-primary" />}
+        books={topRatedBooks}
+        isLoading={topRatedLoading}
+        onBookClick={setSelectedBook}
+      />
+      
+      <FeaturesSection />
+      <HowItWorks />
+      <TestimonialsSection />
+      <CTASection />
+      
+      <GoogleBookDetailModal 
+        book={selectedBook} 
+        isOpen={!!selectedBook} 
+        onClose={() => setSelectedBook(null)} 
+      />
+    </div>
+  );
+};
 
 export default Index;
