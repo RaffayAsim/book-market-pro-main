@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User, Loader2, AlertCircle } from "lucide-react";
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowRight, User, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,12 +18,25 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/");
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
+    setSuccessMessage("");
     
     if (!email.trim() || !password.trim()) {
       setErrorMessage("Please fill in all fields");
@@ -39,92 +52,101 @@ const AuthPage = () => {
 
     try {
       if (isSignUp) {
+        console.log("Attempting signup with:", { email: email.trim().toLowerCase(), role });
+        
         // Try to sign up
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password: password.trim(),
           options: {
             data: { 
-              full_name: fullName.trim(),
+              full_name: fullName.trim() || email.split('@')[0],
               role: role 
             },
           },
         });
 
-        // Handle "user already exists" - try to sign in instead
+        console.log("Signup response:", { signUpData, signUpError });
+
         if (signUpError) {
+          // Handle specific errors
           if (signUpError.message.includes("already registered") || 
               signUpError.message.includes("already exists") ||
               signUpError.message.includes("User already registered")) {
             
-            // Try signing in with the credentials
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-              email: email.trim().toLowerCase(),
-              password: password.trim(),
-            });
-            
-            if (signInError) {
-              setErrorMessage("This email is already registered. Please sign in instead.");
-              setIsSignUp(false);
-              setLoading(false);
-              return;
-            }
-            
-            // Sign in worked! Redirect
-            toast({ title: "Welcome back!", description: "You were already registered, so we signed you in." });
-            navigate("/");
+            setErrorMessage("This email is already registered. Please sign in instead.");
+            setIsSignUp(false);
+            setLoading(false);
             return;
           }
           
           throw signUpError;
         }
 
-        // Sign up succeeded - now try to sign in to get a session
-        if (signUpData.user) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: email.trim().toLowerCase(),
-            password: password.trim(),
-          });
-          
-          if (signInError) {
-            // User created but couldn't sign in - might need email confirmation
-            toast({ 
-              title: "Account created!", 
-              description: "Please check your email to confirm your account, then sign in.",
-            });
-            setIsSignUp(false);
-            setLoading(false);
-            return;
-          }
-          
-          // Success! Redirect based on role
-          toast({ 
-            title: "Welcome!", 
-            description: `Your account has been created as a ${role}.` 
-          });
-          
-          if (role === 'author') {
-            navigate("/author-dashboard");
-          } else {
-            navigate("/dashboard");
-          }
+        // Check if user was created
+        if (!signUpData.user) {
+          throw new Error("Failed to create user account");
+        }
+
+        // If email confirmation is required, show message
+        if (signUpData.user.identities && signUpData.user.identities.length === 0) {
+          setSuccessMessage("Account created! Please check your email to confirm, or try signing in if you've already confirmed.");
+          setLoading(false);
+          return;
+        }
+
+        // Try to sign in immediately (if auto-confirm is enabled)
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password: password.trim(),
+        });
+
+        if (signInError) {
+          // User created but needs email confirmation
+          setSuccessMessage("Account created! Please check your email to confirm your account before signing in.");
+          setIsSignUp(false);
+          setLoading(false);
+          return;
+        }
+
+        // Success! User is signed in
+        toast({ 
+          title: "Welcome!", 
+          description: `Your account has been created as a ${role}.` 
+        });
+        
+        // Redirect based on role
+        if (role === 'author') {
+          navigate("/author-dashboard");
+        } else {
+          navigate("/dashboard");
         }
         
       } else {
         // Sign in existing user
-        const { error } = await supabase.auth.signInWithPassword({ 
+        console.log("Attempting signin with:", email.trim().toLowerCase());
+        
+        const { data, error } = await supabase.auth.signInWithPassword({ 
           email: email.trim().toLowerCase(), 
           password: password.trim() 
         });
         
+        console.log("Signin response:", { data, error });
+
         if (error) {
           if (error.message.includes("Invalid login")) {
             setErrorMessage("Invalid email or password. Please try again.");
           } else if (error.message.includes("Email not confirmed")) {
-            setErrorMessage("Please confirm your email address before signing in.");
+            setErrorMessage("Please confirm your email address before signing in. Check your inbox!");
           } else {
             setErrorMessage(error.message);
           }
+          setLoading(false);
+          return;
+        }
+
+        if (!data.user) {
+          setErrorMessage("Sign in failed. Please try again.");
           setLoading(false);
           return;
         }
@@ -135,6 +157,29 @@ const AuthPage = () => {
     } catch (err: any) {
       console.error("Auth error:", err);
       setErrorMessage(err.message || "An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!email.trim()) {
+      setErrorMessage("Please enter your email address first");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+      });
+      
+      if (error) throw error;
+      
+      setSuccessMessage("Confirmation email resent! Please check your inbox.");
+    } catch (err: any) {
+      setErrorMessage(err.message);
     } finally {
       setLoading(false);
     }
@@ -167,7 +212,25 @@ const AuthPage = () => {
           {errorMessage && (
             <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-destructive">{errorMessage}</p>
+              <div className="flex-1">
+                <p className="text-sm text-destructive">{errorMessage}</p>
+                {errorMessage.includes("confirm your email") && (
+                  <button 
+                    onClick={resendConfirmation}
+                    className="text-xs text-primary hover:underline mt-1"
+                  >
+                    Resend confirmation email
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-green-700">{successMessage}</p>
             </div>
           )}
 
@@ -179,8 +242,7 @@ const AuthPage = () => {
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Full name"
-                  required={isSignUp}
+                  placeholder="Full name (optional)"
                   className="pl-10 h-12 bg-background border-border"
                 />
               </div>
@@ -204,7 +266,7 @@ const AuthPage = () => {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Password (min 6 characters)"
                 required
                 minLength={6}
                 className="pl-10 pr-10 h-12 bg-background border-border"
@@ -269,19 +331,35 @@ const AuthPage = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <button
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setErrorMessage("");
+                setSuccessMessage("");
                 setEmail("");
                 setPassword("");
                 setFullName("");
               }}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm text-muted-foreground hover:text-primary transition-colors block w-full"
             >
               {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
+            
+            {!isSignUp && (
+              <button
+                onClick={resendConfirmation}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Didn't receive confirmation email?
+              </button>
+            )}
+          </div>
+          
+          <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-800 text-center">
+              <strong>Tip:</strong> If you're not receiving emails, try using a Gmail address or check your spam folder.
+            </p>
           </div>
         </div>
       </motion.div>
